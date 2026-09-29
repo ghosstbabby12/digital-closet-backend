@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     secret_key: str = "dev-secret-change-me"
     access_token_expire_minutes: int = 10080
 
-    database_url: str = "sqlite:///./closet.db"
+    database_url: str = "postgresql+psycopg://closet:password@localhost:5432/closet"
 
     openweather_api_key: str = ""
 

@@ -1,6 +1,6 @@
 #!/bin/bash
 set -e
-BASE=http://127.0.0.1:8000
+BASE=${BASE:-http://127.0.0.1:8000}
 
 echo "--- registro ---"
 REG=$(curl -s -X POST $BASE/auth/register -H "Content-Type: application/json" \

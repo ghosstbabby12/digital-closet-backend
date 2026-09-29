@@ -34,6 +34,6 @@ class Garment(Base):
     warmth: Mapped[WarmthLevel] = mapped_column(Enum(WarmthLevel), default=WarmthLevel.medium)
     image_path: Mapped[str] = mapped_column(String(500), nullable=False)
 
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     owner: Mapped["User"] = relationship(back_populates="garments")

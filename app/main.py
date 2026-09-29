@@ -4,11 +4,8 @@ from fastapi.staticfiles import StaticFiles
 
 from app.api.routes import auth, garments, outfits, weather
 from app.core.config import settings
-from app.db.session import Base, engine
-import app.models  # noqa: F401 - registra los modelos en Base.metadata
 
-Base.metadata.create_all(bind=engine)
-
+# El esquema de la base de datos lo gestiona Alembic: `alembic upgrade head`.
 app = FastAPI(title="Curador de Moda IA")
 
 app.add_middleware(

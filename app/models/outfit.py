@@ -8,8 +8,8 @@ from app.db.session import Base
 outfit_garments = Table(
     "outfit_garments",
     Base.metadata,
-    Column("outfit_id", ForeignKey("outfits.id"), primary_key=True),
-    Column("garment_id", ForeignKey("garments.id"), primary_key=True),
+    Column("outfit_id", ForeignKey("outfits.id", ondelete="CASCADE"), primary_key=True),
+    Column("garment_id", ForeignKey("garments.id", ondelete="CASCADE"), primary_key=True),
 )
 
 
@@ -24,7 +24,7 @@ class Outfit(Base):
     weather_condition: Mapped[str] = mapped_column(String(120), nullable=False)
     explanation: Mapped[str] = mapped_column(Text, nullable=False)
 
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     owner: Mapped["User"] = relationship(back_populates="outfits")
     garments: Mapped[list["Garment"]] = relationship(secondary=outfit_garments)
