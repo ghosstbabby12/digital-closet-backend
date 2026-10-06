@@ -33,16 +33,15 @@ def save_garment_image(file: UploadFile) -> str:
     content = file.file.read()
 
     if _use_supabase():
-        response = httpx.post(
-            _supabase_object_url(filename),
-            content=content,
-            headers={
-                "Authorization": f"Bearer {settings.supabase_service_key}",
-                "apikey": settings.supabase_service_key,
-                "Content-Type": file.content_type or "application/octet-stream",
-            },
-            timeout=30,
-        )
+        headers = {
+            "apikey": settings.supabase_service_key,
+            "Content-Type": file.content_type or "application/octet-stream",
+        }
+        # La clave legacy service_role es un JWT y también va como Bearer; las
+        # claves nuevas (sb_secret_...) solo van en "apikey".
+        if settings.supabase_service_key.startswith("eyJ"):
+            headers["Authorization"] = f"Bearer {settings.supabase_service_key}"
+        response = httpx.post(_supabase_object_url(filename), content=content, headers=headers, timeout=30)
         if response.status_code >= 400:
             raise HTTPException(status_code=502, detail="No se pudo guardar la imagen.")
         return filename
