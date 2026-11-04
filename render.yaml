@@ -1,7 +1,7 @@
 # Blueprint de Render: https://render.com/docs/blueprint-spec
 services:
   - type: web
-    name: digital-closet-api
+    name: digital-closet-api-6bvq
     runtime: python
     plan: free
     buildCommand: pip install -r requirements.txt
