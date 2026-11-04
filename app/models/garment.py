@@ -33,6 +33,8 @@ class Garment(Base):
     color: Mapped[str] = mapped_column(String(60), default="")
     warmth: Mapped[WarmthLevel] = mapped_column(Enum(WarmthLevel), default=WarmthLevel.medium)
     image_path: Mapped[str] = mapped_column(String(500), nullable=False)
+    # Recorte con fondo transparente; se genera la primera vez que se usa en el probador.
+    cutout_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 

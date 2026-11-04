@@ -12,6 +12,7 @@ class GarmentOut(BaseModel):
     color: str
     warmth: WarmthLevel
     image_url: str
+    cutout_url: str | None = None
     created_at: datetime
 
     class Config:

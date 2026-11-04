@@ -30,6 +30,7 @@ def _to_out(outfit: Outfit) -> OutfitOut:
                 color=g.color,
                 warmth=g.warmth,
                 image_url=image_path_to_url(g.image_path),
+                cutout_url=image_path_to_url(g.cutout_path) if g.cutout_path else None,
                 created_at=g.created_at,
             )
             for g in outfit.garments

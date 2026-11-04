@@ -6,7 +6,13 @@ from app.db.session import get_db
 from app.models.garment import Garment, GarmentCategory, WarmthLevel
 from app.models.user import User
 from app.schemas.garment import GarmentOut
-from app.services.storage import image_path_to_url, save_garment_image
+from app.services.background_removal import remove_background
+from app.services.storage import (
+    image_path_to_url,
+    read_garment_image,
+    save_garment_cutout,
+    save_garment_image,
+)
 
 router = APIRouter(prefix="/garments", tags=["garments"])
 
@@ -19,6 +25,7 @@ def _to_out(garment: Garment) -> GarmentOut:
         color=garment.color,
         warmth=garment.warmth,
         image_url=image_path_to_url(garment.image_path),
+        cutout_url=image_path_to_url(garment.cutout_path) if garment.cutout_path else None,
         created_at=garment.created_at,
     )
 
@@ -54,6 +61,29 @@ def create_garment(
     db.add(garment)
     db.commit()
     db.refresh(garment)
+    return _to_out(garment)
+
+
+@router.post("/{garment_id}/cutout", response_model=GarmentOut)
+def create_garment_cutout(
+    garment_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    garment = (
+        db.query(Garment)
+        .filter(Garment.id == garment_id, Garment.owner_id == current_user.id)
+        .first()
+    )
+    if not garment:
+        raise HTTPException(status_code=404, detail="Prenda no encontrada.")
+
+    # Si ya existe no se repite, para no gastar otro recorte de remove.bg.
+    if not garment.cutout_path:
+        cutout = remove_background(read_garment_image(garment.image_path), "image/jpeg")
+        garment.cutout_path = save_garment_cutout(cutout)
+        db.commit()
+        db.refresh(garment)
     return _to_out(garment)
 
 

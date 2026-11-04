@@ -22,6 +22,11 @@ class Settings(BaseSettings):
     supabase_url: str = ""
     supabase_service_key: str = ""
     supabase_bucket: str = "garments"
+    # Bucket privado para la foto de cuerpo completo de cada usuario.
+    supabase_private_bucket: str = "body-photos"
+
+    # API de remove.bg para quitar el fondo de las fotos.
+    removebg_api_key: str = ""
 
     @field_validator("database_url")
     @classmethod

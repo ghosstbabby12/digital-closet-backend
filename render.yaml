@@ -22,5 +22,9 @@ services:
         sync: false
       - key: SUPABASE_BUCKET
         value: garments
+      - key: SUPABASE_PRIVATE_BUCKET
+        value: body-photos
+      - key: REMOVEBG_API_KEY
+        sync: false
       - key: AI_PROVIDER
         value: rule_based
