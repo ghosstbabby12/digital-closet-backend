@@ -8,6 +8,7 @@ Las prendas van a un bucket público. La foto del cuerpo va a un bucket privado
 y solo se accede a ella con enlaces firmados que expiran.
 """
 
+import logging
 import uuid
 from pathlib import Path
 
@@ -83,6 +84,21 @@ def read_garment_image(image_path: str) -> bytes:
             raise HTTPException(status_code=502, detail="No se pudo leer la imagen de la prenda.")
         return response.content
     return (UPLOAD_DIR / image_path).read_bytes()
+
+
+def delete_garment_files(*image_paths: str | None) -> None:
+    """Borra la foto y el recorte de una prenda. Si falla, solo se registra:
+    la prenda ya se borró y un archivo huérfano no debe impedirlo."""
+    for image_path in filter(None, image_paths):
+        if not _use_supabase():
+            (UPLOAD_DIR / image_path).unlink(missing_ok=True)
+            continue
+        try:
+            response = httpx.delete(_supabase_object_url(image_path), headers=_auth_headers(), timeout=30)
+            if response.status_code >= 400 and response.status_code != 404:
+                logging.getLogger("uvicorn.error").warning("No se pudo borrar %s: %s", image_path, response.status_code)
+        except httpx.HTTPError as error:
+            logging.getLogger("uvicorn.error").warning("No se pudo borrar %s: %s", image_path, error)
 
 
 def image_path_to_url(image_path: str) -> str:
