@@ -28,6 +28,10 @@ class Settings(BaseSettings):
     # API de remove.bg para quitar el fondo de las fotos.
     removebg_api_key: str = ""
 
+    # API de Gemini para autocompletar los datos de una prenda desde su foto.
+    gemini_api_key: str = ""
+    gemini_model: str = "gemini-3.5-flash-lite"
+
     @field_validator("database_url")
     @classmethod
     def use_psycopg_driver(cls, value: str) -> str:

@@ -6,7 +6,9 @@ from app.db.session import get_db
 from app.models.garment import Garment, GarmentCategory, WarmthLevel
 from app.models.user import User
 from app.schemas.garment import GarmentOut
+from app.schemas.garment_suggestion import GarmentSuggestion
 from app.services.background_removal import remove_background
+from app.services.garment_autofill import suggest_garment_details
 from app.services.storage import (
     image_path_to_url,
     read_garment_image,
@@ -15,6 +17,8 @@ from app.services.storage import (
 )
 
 router = APIRouter(prefix="/garments", tags=["garments"])
+
+MAX_SUGGESTION_PHOTO_BYTES = 12 * 1024 * 1024
 
 
 def _to_out(garment: Garment) -> GarmentOut:
@@ -34,6 +38,20 @@ def _to_out(garment: Garment) -> GarmentOut:
 def list_garments(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     garments = db.query(Garment).filter(Garment.owner_id == current_user.id).order_by(Garment.created_at.desc()).all()
     return [_to_out(g) for g in garments]
+
+
+@router.post("/suggest", response_model=GarmentSuggestion)
+def suggest_garment(
+    image: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+):
+    """Propone nombre, color, categoría y abrigo. No guarda la foto ni crea la prenda."""
+    if image.content_type not in ("image/jpeg", "image/png", "image/webp"):
+        raise HTTPException(status_code=400, detail="Formato de imagen no soportado.")
+    content = image.file.read()
+    if len(content) > MAX_SUGGESTION_PHOTO_BYTES:
+        raise HTTPException(status_code=413, detail="La foto es demasiado grande (máximo 12 MB).")
+    return suggest_garment_details(content, image.content_type)
 
 
 @router.post("", response_model=GarmentOut, status_code=201)

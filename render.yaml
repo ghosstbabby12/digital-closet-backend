@@ -26,5 +26,7 @@ services:
         value: body-photos
       - key: REMOVEBG_API_KEY
         sync: false
+      - key: GEMINI_API_KEY
+        sync: false
       - key: AI_PROVIDER
         value: rule_based
