@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from app.api.routes import auth, garments, outfits, profile, weather
+from app.api.routes import auth, garments, looks, outfits, profile, weather
 from app.core.config import settings
 
 # El esquema de la base de datos lo gestiona Alembic: `alembic upgrade head`.
@@ -23,6 +23,7 @@ app.include_router(garments.router)
 app.include_router(weather.router)
 app.include_router(outfits.router)
 app.include_router(profile.router)
+app.include_router(looks.router)
 
 
 @app.get("/health")

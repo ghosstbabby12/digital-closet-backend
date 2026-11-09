@@ -28,5 +28,7 @@ services:
         sync: false
       - key: GEMINI_API_KEY
         sync: false
+      - key: FASHN_API_KEY
+        sync: false
       - key: AI_PROVIDER
         value: rule_based

@@ -31,6 +31,10 @@ class Settings(BaseSettings):
     # API de Gemini para autocompletar los datos de una prenda desde su foto.
     gemini_api_key: str = ""
     gemini_model: str = "gemini-3.5-flash-lite"
+    # Prueba virtual con FASHN (de pago: 1 crédito por prenda probada).
+    fashn_api_key: str = ""
+    # Máximo de prendas (créditos) que cada usuario puede probar cada 24 horas.
+    try_on_daily_limit: int = 10
 
     @field_validator("database_url")
     @classmethod
