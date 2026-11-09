@@ -1,8 +1,17 @@
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.models.garment import GarmentCategory, WarmthLevel
+
+
+class GarmentUpdate(BaseModel):
+    """Campos editables de una prenda; los que no se envían no cambian."""
+
+    name: str | None = Field(default=None, max_length=120)
+    color: str | None = Field(default=None, max_length=60)
+    category: GarmentCategory | None = None
+    warmth: WarmthLevel | None = None
 
 
 class GarmentOut(BaseModel):

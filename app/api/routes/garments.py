@@ -5,11 +5,12 @@ from app.api.deps import get_current_user
 from app.db.session import get_db
 from app.models.garment import Garment, GarmentCategory, WarmthLevel
 from app.models.user import User
-from app.schemas.garment import GarmentOut
+from app.schemas.garment import GarmentOut, GarmentUpdate
 from app.schemas.garment_suggestion import GarmentSuggestion
 from app.services.background_removal import remove_background
 from app.services.garment_autofill import suggest_garment_details
 from app.services.storage import (
+    delete_garment_files,
     image_path_to_url,
     read_garment_image,
     save_garment_cutout,
@@ -105,6 +106,29 @@ def create_garment_cutout(
     return _to_out(garment)
 
 
+@router.patch("/{garment_id}", response_model=GarmentOut)
+def update_garment(
+    garment_id: int,
+    payload: GarmentUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    garment = (
+        db.query(Garment)
+        .filter(Garment.id == garment_id, Garment.owner_id == current_user.id)
+        .first()
+    )
+    if not garment:
+        raise HTTPException(status_code=404, detail="Prenda no encontrada.")
+    for field, value in payload.model_dump(exclude_unset=True).items():
+        if value is None:
+            raise HTTPException(status_code=422, detail=f"El campo {field} no puede quedar vacío.")
+        setattr(garment, field, value.strip() if isinstance(value, str) else value)
+    db.commit()
+    db.refresh(garment)
+    return _to_out(garment)
+
+
 @router.delete("/{garment_id}", status_code=204)
 def delete_garment(garment_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     garment = (
@@ -114,5 +138,7 @@ def delete_garment(garment_id: int, db: Session = Depends(get_db), current_user:
     )
     if not garment:
         raise HTTPException(status_code=404, detail="Prenda no encontrada.")
+    files = (garment.image_path, garment.cutout_path)
     db.delete(garment)
     db.commit()
+    delete_garment_files(*files)
