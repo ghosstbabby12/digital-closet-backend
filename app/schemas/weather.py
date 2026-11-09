@@ -7,3 +7,11 @@ class WeatherOut(BaseModel):
     condition: str
     condition_main: str
     city: str
+
+
+class CityOut(BaseModel):
+    name: str
+    state: str | None = None
+    country: str
+    lat: float
+    lon: float
