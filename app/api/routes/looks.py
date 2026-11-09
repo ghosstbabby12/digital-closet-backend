@@ -53,6 +53,24 @@ def generate_look(
     if any(not can_try_on(g.category) for g in garments):
         raise HTTPException(status_code=400, detail="El calzado y los accesorios aún no se pueden probar con IA.")
 
+    ordered = wearing_order(garments)
+    ordered_ids = ",".join(str(g.id) for g in ordered)
+
+    # La misma combinación sobre la misma foto ya está hecha: se devuelve al
+    # instante y sin gastar créditos.
+    existing = (
+        db.query(Look)
+        .filter(
+            Look.owner_id == current_user.id,
+            Look.garment_ids == ordered_ids,
+            Look.body_photo_path == current_user.body_photo_path,
+        )
+        .order_by(Look.created_at.desc())
+        .first()
+    )
+    if existing:
+        return _to_out(existing)
+
     # Cada prenda probada gasta un crédito de FASHN: se limita cuántas puede probar cada usuario por día.
     since = datetime.now(timezone.utc) - timedelta(days=1)
     recent = db.query(Look.garment_ids).filter(Look.owner_id == current_user.id, Look.created_at >= since).all()
@@ -63,7 +81,6 @@ def generate_look(
             detail=f"Llegaste al límite de {settings.try_on_daily_limit} prendas probadas por día. Intenta mañana.",
         )
 
-    ordered = wearing_order(garments)
     image, extension, content_type = generate_try_on(
         read_body_photo(current_user.body_photo_path),
         [(g, read_garment_image(g.cutout_path)) for g in ordered],
@@ -71,7 +88,8 @@ def generate_look(
     look = Look(
         owner_id=current_user.id,
         image_path=save_look_image(image, extension, content_type),
-        garment_ids=",".join(str(g.id) for g in ordered),
+        garment_ids=ordered_ids,
+        body_photo_path=current_user.body_photo_path,
     )
     db.add(look)
     db.commit()
