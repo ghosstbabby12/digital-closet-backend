@@ -98,6 +98,45 @@ def test_encadena_las_prendas_en_orden_de_vestir(client, apis, tmp_path):  # noq
     assert final in [path.read_bytes() for path in tmp_path.iterdir()]
 
 
+def test_pasos_intermedios_en_jpeg_y_el_final_en_png(client, apis, monkeypatch):  # noqa: F811
+    monkeypatch.setattr(settings, "fashn_mode", "performance")
+    headers = ready_user(client)
+    top = new_garment(client, headers, "top")
+    pants = new_garment(client, headers, "bottom")
+
+    client.post("/looks", headers=headers, json={"garment_ids": [top, pants]})
+
+    assert [run["output_format"] for run in apis.runs] == ["jpeg", "png"]
+    assert {run["mode"] for run in apis.runs} == {"performance"}
+
+
+def test_repetir_la_combinacion_no_gasta_creditos(client, apis):  # noqa: F811
+    headers = ready_user(client)
+    top = new_garment(client, headers, "top")
+    pants = new_garment(client, headers, "bottom")
+    first = client.post("/looks", headers=headers, json={"garment_ids": [top, pants]}).json()
+
+    # Mismas prendas en otro orden: es el mismo look.
+    again = client.post("/looks", headers=headers, json={"garment_ids": [pants, top]})
+
+    assert again.status_code in (200, 201)
+    assert again.json()["id"] == first["id"]
+    assert len(apis.runs) == 2
+    assert len(client.get("/looks", headers=headers).json()) == 1
+
+
+def test_con_otra_foto_del_cuerpo_se_genera_de_nuevo(client, apis):  # noqa: F811
+    headers = ready_user(client)
+    top = new_garment(client, headers)
+    first = client.post("/looks", headers=headers, json={"garment_ids": [top]}).json()
+
+    client.put("/me/body-photo", headers=headers, files={"image": ("yo2.jpg", b"jpeg", "image/jpeg")})
+    again = client.post("/looks", headers=headers, json={"garment_ids": [top]}).json()
+
+    assert again["id"] != first["id"]
+    assert len(apis.runs) == 2
+
+
 def test_envia_imagenes_sin_transparencia(client, apis):  # noqa: F811
     headers = ready_user(client)
     top = new_garment(client, headers)
@@ -155,9 +194,11 @@ def test_limite_diario_cuenta_prendas(client, apis, monkeypatch):  # noqa: F811
     headers = ready_user(client)
     top = new_garment(client, headers, "top")
     pants = new_garment(client, headers, "bottom")
+    jacket = new_garment(client, headers, "outerwear")
 
     first = client.post("/looks", headers=headers, json={"garment_ids": [top, pants]})
-    second = client.post("/looks", headers=headers, json={"garment_ids": [top, pants]})
+    # Otra combinación: 2 prendas más superarían el límite de 3.
+    second = client.post("/looks", headers=headers, json={"garment_ids": [top, jacket]})
 
     assert first.status_code == 201
     assert second.status_code == 429
