@@ -7,6 +7,7 @@ vestir, usando cada resultado como la foto de la persona en la siguiente.
 
 import base64
 import io
+import logging
 import time
 
 import httpx
@@ -17,8 +18,11 @@ from app.core.config import settings
 from app.models.garment import Garment, GarmentCategory
 
 FASHN_URL = "https://api.fashn.ai/v1"
-POLL_SECONDS = 2
+POLL_SECONDS = 1
 MAX_WAIT_SECONDS = 90
+
+# El logger de uvicorn es el que aparece en los logs de Render.
+logger = logging.getLogger("uvicorn.error")
 
 # Categorías que FASHN sabe vestir y orden en que se ponen: lo de abajo primero,
 # la chaqueta al final para que quede encima de todo.
@@ -73,9 +77,10 @@ def _raise_for_api_error(response: httpx.Response) -> None:
     raise HTTPException(status_code=502, detail="El servicio de prueba no está disponible.")
 
 
-def _run_one(model_image: str, garment: Garment, garment_png: bytes) -> str:
+def _run_one(model_image: str, garment: Garment, garment_png: bytes, *, final: bool) -> str:
     """Viste una prenda y devuelve la imagen resultante como data URI."""
     category, _ = FASHN_CATEGORIES[garment.category]
+    started = time.monotonic()
     try:
         response = httpx.post(
             f"{FASHN_URL}/run",
@@ -87,8 +92,10 @@ def _run_one(model_image: str, garment: Garment, garment_png: bytes) -> str:
                     "garment_image": _data_uri(_flatten(garment_png, (255, 255, 255)), "image/jpeg"),
                     "category": category,
                     "garment_photo_type": "flat-lay",
-                    "mode": "balanced",
-                    "output_format": "png",
+                    "mode": settings.fashn_mode,
+                    # Los pasos intermedios se reenvían como entrada del siguiente:
+                    # en JPEG pesan mucho menos y el envío es más rápido.
+                    "output_format": "png" if final else "jpeg",
                     "return_base64": True,
                 },
             },
@@ -105,6 +112,7 @@ def _run_one(model_image: str, garment: Garment, garment_png: bytes) -> str:
             _raise_for_api_error(status)
             prediction = status.json()
             if prediction.get("status") == "completed":
+                logger.info("FASHN %s (%s) listo en %.1f s", category, settings.fashn_mode, time.monotonic() - started)
                 return _as_data_uri(prediction["output"][0])
             if prediction.get("status") == "failed":
                 _raise_for_failed(prediction.get("error") or {})
@@ -139,8 +147,8 @@ def generate_try_on(body_photo: bytes, garments: list[tuple[Garment, bytes]]) ->
         raise HTTPException(status_code=503, detail="La prueba con IA no está configurada en el servidor.")
 
     current = _data_uri(_flatten(body_photo, (236, 233, 226)), "image/jpeg")
-    for garment, garment_png in garments:
-        current = _run_one(current, garment, garment_png)
+    for index, (garment, garment_png) in enumerate(garments):
+        current = _run_one(current, garment, garment_png, final=index == len(garments) - 1)
 
     header, _, data = current.partition(",")
     image = base64.b64decode(data)

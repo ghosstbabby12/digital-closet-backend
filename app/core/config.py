@@ -33,6 +33,8 @@ class Settings(BaseSettings):
     gemini_model: str = "gemini-3.5-flash-lite"
     # Prueba virtual con FASHN (de pago: 1 crédito por prenda probada).
     fashn_api_key: str = ""
+    # performance (~5 s por prenda), balanced (~8 s) o quality (12-17 s), según FASHN.
+    fashn_mode: str = "balanced"
     # Máximo de prendas (créditos) que cada usuario puede probar cada 24 horas.
     try_on_daily_limit: int = 10
 
