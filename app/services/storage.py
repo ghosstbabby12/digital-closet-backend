@@ -95,11 +95,12 @@ def _private_bucket_url() -> str:
     return f"{_storage_base()}/object/{settings.supabase_private_bucket}"
 
 
-def save_body_photo(content: bytes) -> str:
-    return _save(content, ".png", "image/png", object_url=_private_bucket_url() if _use_supabase() else None)
+def _save_private(content: bytes, extension: str, content_type: str) -> str:
+    return _save(content, extension, content_type, object_url=_private_bucket_url() if _use_supabase() else None)
 
 
-def body_photo_url(filename: str) -> str:
+def _private_url(filename: str, error: str) -> str:
+    """Enlace firmado que expira; en local, la ruta de /uploads."""
     if not _use_supabase():
         return f"/uploads/{filename}"
     try:
@@ -110,19 +111,56 @@ def body_photo_url(filename: str) -> str:
             timeout=30,
         )
     except httpx.HTTPError:
-        raise HTTPException(status_code=502, detail="No se pudo obtener tu foto.")
+        raise HTTPException(status_code=502, detail=error)
     if response.status_code >= 400:
-        raise HTTPException(status_code=502, detail="No se pudo obtener tu foto.")
+        raise HTTPException(status_code=502, detail=error)
     return f"{_storage_base()}{response.json()['signedURL']}"
 
 
-def delete_body_photo(filename: str) -> None:
+def _delete_private(filename: str, error: str) -> None:
     if not _use_supabase():
         (UPLOAD_DIR / filename).unlink(missing_ok=True)
         return
     try:
         response = httpx.delete(f"{_private_bucket_url()}/{filename}", headers=_auth_headers(), timeout=30)
     except httpx.HTTPError:
-        raise HTTPException(status_code=502, detail="No se pudo borrar tu foto.")
+        raise HTTPException(status_code=502, detail=error)
     if response.status_code >= 400 and response.status_code != 404:
-        raise HTTPException(status_code=502, detail="No se pudo borrar tu foto.")
+        raise HTTPException(status_code=502, detail=error)
+
+
+def save_body_photo(content: bytes) -> str:
+    return _save_private(content, ".png", "image/png")
+
+
+def body_photo_url(filename: str) -> str:
+    return _private_url(filename, "No se pudo obtener tu foto.")
+
+
+def delete_body_photo(filename: str) -> None:
+    _delete_private(filename, "No se pudo borrar tu foto.")
+
+
+def read_body_photo(filename: str) -> bytes:
+    if not _use_supabase():
+        return (UPLOAD_DIR / filename).read_bytes()
+    try:
+        response = httpx.get(f"{_private_bucket_url()}/{filename}", headers=_auth_headers(), timeout=30)
+    except httpx.HTTPError:
+        raise HTTPException(status_code=502, detail="No se pudo leer tu foto.")
+    if response.status_code >= 400:
+        raise HTTPException(status_code=502, detail="No se pudo leer tu foto.")
+    return response.content
+
+
+def save_look_image(content: bytes, extension: str, content_type: str) -> str:
+    """Los looks generados te muestran a ti: van al bucket privado, como tu foto."""
+    return _save_private(content, extension, content_type)
+
+
+def look_image_url(filename: str) -> str:
+    return _private_url(filename, "No se pudo obtener la imagen del look.")
+
+
+def delete_look_image(filename: str) -> None:
+    _delete_private(filename, "No se pudo borrar la imagen del look.")
