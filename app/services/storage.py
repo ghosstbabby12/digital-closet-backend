@@ -180,3 +180,16 @@ def look_image_url(filename: str) -> str:
 
 def delete_look_image(filename: str) -> None:
     _delete_private(filename, "No se pudo borrar la imagen del look.")
+
+
+def save_avatar(content: bytes, extension: str, content_type: str) -> str:
+    """La foto de perfil muestra tu cara: va al bucket privado, como tu foto de cuerpo."""
+    return _save_private(content, extension, content_type)
+
+
+def avatar_url(filename: str) -> str:
+    return _private_url(filename, "No se pudo obtener tu foto de perfil.")
+
+
+def delete_avatar(filename: str) -> None:
+    _delete_private(filename, "No se pudo borrar tu foto de perfil.")
