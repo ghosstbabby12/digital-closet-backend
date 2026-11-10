@@ -24,6 +24,7 @@ class FakeApis:
 
     def __init__(self):
         self.runs = []
+        self.models = []
         self.outputs = []
         self.run_status = 200
         self.run_error = None
@@ -33,6 +34,7 @@ class FakeApis:
         if "remove.bg" in url:
             return httpx.Response(200, content=CUTOUT)
         self.runs.append(kwargs["json"]["inputs"])
+        self.models.append(kwargs["json"]["model_name"])
         if self.run_status != 200:
             return httpx.Response(self.run_status, json={"error": self.run_error})
         return httpx.Response(200, json={"id": f"pred-{len(self.runs)}", "error": None})
@@ -150,14 +152,35 @@ def test_envia_imagenes_sin_transparencia(client, apis):  # noqa: F811
         assert image.mode == "RGB"
 
 
-def test_calzado_y_accesorios_no_se_pueden_probar(client, apis):  # noqa: F811
+def test_los_accesorios_no_se_pueden_probar(client, apis):  # noqa: F811
     headers = ready_user(client)
-    shoes = new_garment(client, headers, "shoes")
+    bag = new_garment(client, headers, "accessory")
 
-    response = client.post("/looks", headers=headers, json={"garment_ids": [shoes]})
+    response = client.post("/looks", headers=headers, json={"garment_ids": [bag]})
 
     assert response.status_code == 400
     assert apis.runs == []
+
+
+def test_los_zapatos_se_ponen_al_final_con_tryon_max(client, apis):  # noqa: F811
+    headers = ready_user(client)
+    shoes = new_garment(client, headers, "shoes")
+    dress = new_garment(client, headers, "dress")
+
+    response = client.post("/looks", headers=headers, json={"garment_ids": [shoes, dress]})
+
+    assert response.status_code == 201
+    assert response.json()["garment_ids"] == [dress, shoes]
+    clothes, feet = apis.runs
+    assert clothes["category"] == "one-pieces"
+    assert "product_image" not in clothes
+    # Los zapatos van sobre el resultado del vestido, con el modelo que sí los admite y en modo rápido.
+    assert feet["model_image"] == apis.outputs[0]
+    assert feet["product_image"].startswith("data:image/jpeg;base64,")
+    assert feet["generation_mode"] == "fast"
+    assert feet["output_format"] == "png"
+    assert "category" not in feet
+    assert apis.models == ["tryon-v1.6", "tryon-max"]
 
 
 def test_sin_foto_del_cuerpo_no_gasta_creditos(client, apis):  # noqa: F811

@@ -51,7 +51,7 @@ def generate_look(
     if any(not g.cutout_path for g in garments):
         raise HTTPException(status_code=400, detail="Pon primero cada prenda en el probador.")
     if any(not can_try_on(g.category) for g in garments):
-        raise HTTPException(status_code=400, detail="El calzado y los accesorios aún no se pueden probar con IA.")
+        raise HTTPException(status_code=400, detail="Los accesorios aún no se pueden probar con IA.")
 
     ordered = wearing_order(garments)
     ordered_ids = ",".join(str(g.id) for g in ordered)

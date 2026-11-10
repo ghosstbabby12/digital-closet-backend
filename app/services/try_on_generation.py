@@ -3,6 +3,9 @@
 FASHN viste una prenda por llamada (1 crédito, unos USD 0.075; las llamadas que
 fallan no se cobran). Para un outfit se encadenan las llamadas en orden de
 vestir, usando cada resultado como la foto de la persona en la siguiente.
+
+La ropa usa tryon-v1.6. El calzado no lo admite: se pone al final con
+tryon-max, en modo rápido (también 1 crédito).
 """
 
 import base64
@@ -25,13 +28,16 @@ MAX_WAIT_SECONDS = 90
 logger = logging.getLogger("uvicorn.error")
 
 # Categorías que FASHN sabe vestir y orden en que se ponen: lo de abajo primero,
-# la chaqueta al final para que quede encima de todo.
+# la chaqueta para que quede encima de todo y los zapatos al final.
 FASHN_CATEGORIES = {
     GarmentCategory.bottom: ("bottoms", 0),
     GarmentCategory.dress: ("one-pieces", 1),
     GarmentCategory.top: ("tops", 2),
     GarmentCategory.outerwear: ("tops", 3),
+    GarmentCategory.shoes: ("shoes", 4),
 }
+
+SHOES_PROMPT = "Put these shoes on the person's feet. Keep the person, pose, clothes and background unchanged."
 
 
 def can_try_on(category: GarmentCategory) -> bool:
@@ -80,27 +86,45 @@ def _raise_for_api_error(response: httpx.Response) -> None:
 def _run_one(model_image: str, garment: Garment, garment_png: bytes, *, final: bool) -> str:
     """Viste una prenda y devuelve la imagen resultante como data URI."""
     category, _ = FASHN_CATEGORIES[garment.category]
+    product = _data_uri(_flatten(garment_png, (255, 255, 255)), "image/jpeg")
+    # Los pasos intermedios se reenvían como entrada del siguiente:
+    # en JPEG pesan mucho menos y el envío es más rápido.
+    output_format = "png" if final else "jpeg"
+    if garment.category == GarmentCategory.shoes:
+        body = {
+            "model_name": "tryon-max",
+            "inputs": {
+                "model_image": model_image,
+                "product_image": product,
+                "prompt": SHOES_PROMPT,
+                "generation_mode": "fast",
+                "resolution": "1k",
+                "output_format": output_format,
+                "return_base64": True,
+            },
+        }
+        label = "shoes (tryon-max fast)"
+    else:
+        body = {
+            "model_name": "tryon-v1.6",
+            "inputs": {
+                "model_image": model_image,
+                "garment_image": product,
+                "category": category,
+                "garment_photo_type": "flat-lay",
+                "mode": settings.fashn_mode,
+                "output_format": output_format,
+                "return_base64": True,
+            },
+        }
+        label = f"{category} ({settings.fashn_mode})"
+    return _submit_and_wait(body, label)
+
+
+def _submit_and_wait(body: dict, label: str) -> str:
     started = time.monotonic()
     try:
-        response = httpx.post(
-            f"{FASHN_URL}/run",
-            headers=_headers(),
-            json={
-                "model_name": "tryon-v1.6",
-                "inputs": {
-                    "model_image": model_image,
-                    "garment_image": _data_uri(_flatten(garment_png, (255, 255, 255)), "image/jpeg"),
-                    "category": category,
-                    "garment_photo_type": "flat-lay",
-                    "mode": settings.fashn_mode,
-                    # Los pasos intermedios se reenvían como entrada del siguiente:
-                    # en JPEG pesan mucho menos y el envío es más rápido.
-                    "output_format": "png" if final else "jpeg",
-                    "return_base64": True,
-                },
-            },
-            timeout=30,
-        )
+        response = httpx.post(f"{FASHN_URL}/run", headers=_headers(), json=body, timeout=30)
         _raise_for_api_error(response)
         prediction_id = response.json()["id"]
 
@@ -112,7 +136,7 @@ def _run_one(model_image: str, garment: Garment, garment_png: bytes, *, final: b
             _raise_for_api_error(status)
             prediction = status.json()
             if prediction.get("status") == "completed":
-                logger.info("FASHN %s (%s) listo en %.1f s", category, settings.fashn_mode, time.monotonic() - started)
+                logger.info("FASHN %s listo en %.1f s", label, time.monotonic() - started)
                 return _as_data_uri(prediction["output"][0])
             if prediction.get("status") == "failed":
                 _raise_for_failed(prediction.get("error") or {})
