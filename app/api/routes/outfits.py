@@ -35,6 +35,8 @@ def _to_out(outfit: Outfit) -> OutfitOut:
             )
             for g in outfit.garments
         ],
+        event_title=outfit.event_title,
+        event_date=outfit.event_date,
         created_at=outfit.created_at,
     )
 
@@ -62,6 +64,8 @@ async def generate_outfit(
         weather_condition=weather.condition,
         explanation=suggestion.explanation,
         garments=suggestion.garments,
+        event_title=payload.event_title,
+        event_date=payload.event_date,
     )
     db.add(outfit)
     db.commit()
@@ -78,3 +82,12 @@ def list_outfits(db: Session = Depends(get_db), current_user: User = Depends(get
         .all()
     )
     return [_to_out(o) for o in outfits]
+
+
+@router.delete("/{outfit_id}", status_code=204)
+def delete_outfit(outfit_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    outfit = db.get(Outfit, outfit_id)
+    if outfit is None or outfit.owner_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Outfit no encontrado.")
+    db.delete(outfit)
+    db.commit()

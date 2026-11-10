@@ -1,6 +1,6 @@
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
-from sqlalchemy import DateTime, Float, ForeignKey, String, Table, Column, Text
+from sqlalchemy import Date, DateTime, Float, ForeignKey, String, Table, Column, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.session import Base
@@ -23,6 +23,10 @@ class Outfit(Base):
     weather_temp_c: Mapped[float] = mapped_column(Float, nullable=False)
     weather_condition: Mapped[str] = mapped_column(String(120), nullable=False)
     explanation: Mapped[str] = mapped_column(Text, nullable=False)
+
+    # Evento para el que se armó el outfit ("Boda de Ana"); sin evento, es el outfit del día.
+    event_title: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    event_date: Mapped[date | None] = mapped_column(Date, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
