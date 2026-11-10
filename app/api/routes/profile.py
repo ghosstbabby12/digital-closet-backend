@@ -1,16 +1,36 @@
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
 from app.db.session import get_db
+from app.models.garment import Garment
+from app.models.look import Look
+from app.models.outfit import Outfit
 from app.models.user import User
-from app.schemas.profile import BodyPhotoOut
+from app.schemas.profile import BodyPhotoOut, ProfileOut
 from app.services.background_removal import remove_background
 from app.services.storage import body_photo_url, delete_body_photo, save_body_photo
 
 router = APIRouter(prefix="/me", tags=["profile"])
 
 MAX_PHOTO_BYTES = 12 * 1024 * 1024
+
+
+@router.get("", response_model=ProfileOut)
+def read_profile(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    def count(model) -> int:
+        return db.scalar(select(func.count()).select_from(model).where(model.owner_id == current_user.id))
+
+    return ProfileOut(
+        id=current_user.id,
+        email=current_user.email,
+        created_at=current_user.created_at,
+        garment_count=count(Garment),
+        outfit_count=count(Outfit),
+        look_count=count(Look),
+        has_body_photo=current_user.body_photo_path is not None,
+    )
 
 
 @router.get("/body-photo", response_model=BodyPhotoOut)
